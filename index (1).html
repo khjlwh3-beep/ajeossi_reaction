@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>아저시 반응기 🌈</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: white;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #17182e, #38305d);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 530px;
+      padding: 30px 20px;
+      border-radius: 24px;
+      background: #25263e;
+      text-align: center;
+      box-shadow: 0 15px 40px #0004;
+    }
+
+    h1 {
+      margin: 4px 0 8px;
+      color: #f6b9eb;
+      font-size: clamp(25px, 6vw, 31px);
+    }
+
+    p {
+      margin: 0 0 20px;
+      color: #c4c4d5;
+      font-size: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 98px;
+      padding: 15px;
+      border: 2px solid #555575;
+      border-radius: 14px;
+      outline: none;
+      resize: vertical;
+      color: white;
+      background: #17182b;
+      font: 17px Arial, sans-serif;
+    }
+
+    textarea:focus {
+      border-color: #ed9bdb;
+    }
+
+    button {
+      border: none;
+      border-radius: 11px;
+      cursor: pointer;
+      color: #25182d;
+      background: #eaa6dd;
+      font-weight: bold;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    button:active {
+      transform: scale(0.96);
+    }
+
+    button:hover {
+      filter: brightness(1.1);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+
+    .presets {
+      display: flex;
+      gap: 7px;
+      margin-top: 15px;
+    }
+
+    .presets button {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 4px;
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .go {
+      flex: 1;
+      padding: 14px;
+      font-size: 16px;
+    }
+
+    .reset {
+      width: 52px;
+      height: 52px;
+      flex-shrink: 0;
+      background: #44435e;
+      color: white;
+      font-size: 29px;
+    }
+
+    .answer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 9px;
+      min-height: 115px;
+      margin-top: 18px;
+      padding: 20px 12px;
+      border-radius: 14px;
+      background: #35304b;
+      overflow-wrap: anywhere;
+    }
+
+    .word {
+      font-size: clamp(18px, 4.5vw, 25px);
+      font-weight: bold;
+      animation: softAppear 0.7s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .empty {
+      color: #aaa4c3;
+      font-size: 16px;
+    }
+
+    @keyframes softAppear {
+      from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.96);
+        filter: blur(5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 22px 15px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .word {
+        animation: none;
+      }
+      button {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>🌈 아저시 반응기</h1>
+    <p>아저시를 불러보세요!</p>
+
+    <textarea id="userInput" aria-label="입력창"
+      placeholder="아저시 아저시~! 아저시!"></textarea>
+
+    <div class="presets">
+      <button type="button" data-word="아저시">아저시</button>
+      <button type="button" data-word="아저시~!">아저시~!</button>
+      <button type="button" data-word="아저시!">아저시!</button>
+    </div>
+
+    <div class="actions">
+      <button class="go" type="button">💗 반응하기</button>
+      <button class="reset" type="button" aria-label="초기화" title="초기화">↻</button>
+    </div>
+
+    <div id="answer" class="answer" aria-live="polite">
+      <span class="empty">아저시를 불러줘! ✨</span>
+    </div>
+  </main>
+
+  <script>
+    const input = document.getElementById("userInput");
+    const answer = document.getElementById("answer");
+    const goButton = document.querySelector(".go");
+
+    const responses = {
+      "아저시": "게이! 🌈",
+      "아저시~!": "께이~ 💅🌈✨",
+      "아저시!": "Gay."
+    };
+
+    const queue = [];
+    let timer = null;
+    let typing = false;
+
+    // 진행 중인 타이핑과 대기열을 모두 취소
+    function cancelTyping() {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      queue.length = 0;
+      typing = false;
+      goButton.disabled = false;
+    }
+
+    // 입력칸에 0.06초마다 한 글자씩 쓰기
+    function typeNext() {
+      if (!queue.length) {
+        typing = false;
+        goButton.disabled = false;
+        timer = null;
+        return;
+      }
+
+      const item = queue[0];
+      if (item.index === 0 && input.value.trim()) {
+        input.value = input.value.trimEnd() + " ";
+      }
+
+      input.value += item.chars[item.index++];
+      input.scrollTop = input.scrollHeight;
+
+      if (item.index >= item.chars.length) {
+        queue.shift();
+      }
+
+      timer = setTimeout(typeNext, 60);
+    }
+
+    // 버튼을 여러 번 눌러도 순서대로 타이핑
+    function addWord(word) {
+      queue.push({ chars: Array.from(word), index: 0 });
+
+      if (!typing) {
+        typing = true;
+        goButton.disabled = true;
+        typeNext();
+      }
+    }
+
+    function showPlaceholder() {
+      answer.replaceChildren();
+      const span = document.createElement("span");
+      span.className = "empty";
+      span.textContent = "아저시를 불러줘! ✨";
+      answer.appendChild(span);
+    }
+
+    // 아래 답변칸에는 기존의 부드러운 등장 애니메이션 적용
+    function respond() {
+      if (typing) return;
+
+      const words = input.value.trim()
+        .split(/\s+/)
+        .filter(word => Object.prototype.hasOwnProperty.call(responses, word));
+
+      if (!words.length) {
+        showPlaceholder();
+        return;
+      }
+
+      answer.replaceChildren();
+
+      words.forEach((word, index) => {
+        const span = document.createElement("span");
+        span.className = "word";
+        span.textContent = responses[word];
+        span.style.animationDelay = `${index * 0.18}s`;
+        answer.appendChild(span);
+      });
+    }
+
+    // ↻ 버튼: 입력과 답변, 진행 중인 타이핑까지 초기화
+    function resetAll() {
+      cancelTyping();
+      input.value = "";
+      showPlaceholder();
+    }
+
+    document.querySelectorAll("[data-word]").forEach(button => {
+      button.addEventListener("click", () => addWord(button.dataset.word));
+    });
+
+    goButton.addEventListener("click", respond);
+    document.querySelector(".reset").addEventListener("click", resetAll);
+    input.addEventListener("input", cancelTyping);
+  </script>
+</body>
+</html>
